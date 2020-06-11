@@ -1,40 +1,21 @@
 CC = gcc
 CFLAGS = -Wall -g
 
-all : fifos files server client
+all : fifos servidor cliente
 
+servidor: servidor.o utilities.o
 
-server: server.o utilities.o
+servidor.o: servidor.c
 
-server.o: server.c
+cliente: cliente.o utilities.o
 
-client: client.o utilities.o
-
-client.o: client.c
-
-printer: printer.o utilities.o
-
-printer.o: printer.c
+cliente.o: cliente.c
 
 utilities.o: utilities.c
 
 fifos: 
+	mkdir -p tmp
 	rm -f tmp/*
 
-files:
-	mkdir -p tmp
-	mkdir -p Files
-	touch Files/log.idx
-	touch Files/log
-	touch Files/errors
-	chmod 0700 Files/*
-
 clean: 
-	rm -f *.o server client tmp/* 
-
-delete:
-	rm -f Files/*
-	rm -f fiftmp/*
-	rm -d Files
-	rm -d tmp
-
+	rm -f *.o servidor cliente tmp/* 

@@ -13,74 +13,24 @@
 #include <limits.h>
 #include <errno.h>
 #include <time.h>
- 
-/*server defines*/
-#define BUFSIZE 200
-#define MAXCOMMANDS 10
-#define MAXARGS 20
-#define MAX_READER 1024
 
-/*utilities defines*/
-#define COMMAND_SIZE   1024
-#define PUT_LINE    write(1, "\n", 1);
-#define CACHE       4096
 
-#define FIFO "./tmp/fifo"
-#define CLIENT_FIFO "./tmp/fifo"
-#define S2CFIFO "./tmp/serv2cli"
-#define ERRORS  "./Files/errors"
+#define BUFFER_SIZE 1024
+#define PATH_SIZE 64
+#define COMMAND_SIZE 1024
+#define OUT 256
 
-struct task {
-	int id;
-	int beginnig; //where output beggins in log file
-	int size; //size of output 
-	char command[COMMAND_SIZE];
-}*Task;
+#define FIFOS "tmp/fifo"
 
-typedef struct hashTable{
-	struct Task *tasks;
-} HashTable;
+typedef struct task *Task; 
 
-typedef struct circularArray{
-	struct Task *tasks;
-	int size;
-	int currentPos;
-} CircularArray;
-
-char** words(const char* string, int *size);
-
-int mypopen(char* command, char* type);
-
-//ssize_t readln(int fildes, void *buf, size_t bytes);
 
 ssize_t readln(int fd, char *line, size_t size);
 
-/*
-CircularArray* initCA(int size);
-
-void insertCA(CircularArray *c, int artCode, float price);
-
-void insertCAintoAG(CircularArray *c, int artCode, float totalSold, int artQuantity);
-
-float findCA(CircularArray *c, int artCode);
-
-void freeCircularArray(CircularArray *c);
-
-void flushCircularArray(CircularArray *c, int control);
-
-char* timeToString(void);
-
-int getGlobals(long long *code, long long *next);
-
-void readVenda(struct venda v);
-
-struct artigo readArtigo(long long artCode);
-
-void display(struct artigo art);
+void sendMyPid(int fifo);
 
 pid_t getPidFromPath(char* path);
 
-void getServerPath(char* serverPath, int serverPid);
-*/
+char** words(const char* line, int *size);
 
 #endif
