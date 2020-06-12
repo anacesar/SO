@@ -15,7 +15,10 @@ utilities.o: utilities.c
 
 fifos: 
 	mkdir -p tmp
-	rm -f tmp/*
+	mkdir -p files
 
 clean: 
 	rm -f *.o servidor cliente tmp/* 
+
+
+

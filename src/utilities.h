@@ -15,14 +15,28 @@
 #include <time.h>
 
 
-#define BUFFER_SIZE 1024
+#define SIZE 1024
 #define PATH_SIZE 64
-#define COMMAND_SIZE 1024
 #define OUT 256
+#define CACHE 4096
 
 #define FIFOS "tmp/fifo"
+#define LOGS "files/logs" //file saving tasks output 
+#define LOGIDX "files/log.idx" //file keeping structs task
 
-typedef struct task *Task; 
+typedef struct task {
+	int id;
+    int state; //0->finished, 1->user interrupcion, 2->max inactivity, 3->max execution, 4->executing
+	size_t beginning; //where output beggins in log file
+	size_t size; //size of output 
+	char command[SIZE];
+}Task; 
+
+typedef struct circularArray{
+	Task *tasks;
+	int size;
+	int currentPos;
+} CircularArray;
 
 
 ssize_t readln(int fd, char *line, size_t size);
@@ -32,5 +46,11 @@ void sendMyPid(int fifo);
 pid_t getPidFromPath(char* path);
 
 char** words(const char* line, int *size);
+
+int countTaks(size_t* currentpos);
+
+CircularArray* initCA(int size);
+
+void insertCA(CircularArray *c, int id, char* command);
 
 #endif

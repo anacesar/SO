@@ -39,7 +39,7 @@ int getcommands(char* line, char** commands){
     for(; (token = strtok(NULL, "|")) != NULL && i<MAXCOMMANDS ; i++) commands[i] = strdup(token);
 
     commands[i] = "\0";
-
+f
     return i;
 }
 
@@ -91,7 +91,7 @@ int main(int argc, char* argv[]){
 
     //if(initServer() == -1) perror("init server");
 
-    if(mkfifo(FIFO, 0666) == -1) perror("server fifo");
+    if(mkfifo(FIFOS, 0666) == -1) perror("server fifo");
 
     while(1){
         /* while there is no client to write on my fifo reading is blocked */
