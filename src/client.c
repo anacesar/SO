@@ -1,101 +1,140 @@
 #include "utilities.h"
 
-//fifo -> fd for server2client fifo
-//myfifo -> fd for fifo client creates to send read messages from server
-int fifo, myfifo;
-pid_t pid;
-char keepPath[128];
+int fifo, clififo;
+char* path;
 char serverPath[128];
 
-void closeCommunication(char* path){
-	unlink(path);
-	close(fifo);
+void sendMessage(char* message, int size) {
+    fifo = open(serverPath,O_WRONLY);
+    if(write(fifo,message,size) == -1) perror("Server communication");
+    close(fifo);
 }
 
-void ctrl_c_handler(){
-	closeCommunication(keepPath);
-	close(myfifo);
-	exit(0);
+void help(){
+    write(1, "tempo-inactividade segs\n", 24);
+    write(1, "tempo-execucao segs\n", 20);
+    write(1, "executar 'p1 | p2 ... | pn'\n", 28);
+    write(1, "listar\n", 7);
+    write(1, "terminar tarefa\n", 16);
+    write(1, "historico\n", 10);
+    write(1, "output tarefa\n", 14);
 }
 
-void ctrl_alarm_handler(){
-	closeCommunication(keepPath);
-	close(myfifo);
-	exit(0);
+int isNumber(const char *number) {
+    for (int i=0;i<strlen (number); i++)
+        if (!isdigit(number[i]))
+            return 0;
+    return 1;
 }
 
+int parser(char** input, int size){
+    char message[OUT];
+    memset(message, '\0', OUT);
 
-int sendMyPid(){
-    pid = getpid();
-    char* pid_string = malloc(25);
-    sprintf(pid_string, "%d", pid);
-    if(write(fifo, pid_string, strlen(pid_string)) == -1) return -1;
+    if(size==1){
+        if(strcmp(input[0], "-l")==0 || strcmp(input[0], "listar")==0){
+            strcpy(message, "l");
+        }else if(strcmp(input[0], "-r")==0 || strcmp(input[0], "historico")==0){
+            strcpy(message, "r");
+        }else if(strcmp(input[0], "-h")==0 || strcmp(input[0], "ajuda")==0){
+            help();
+        }else return -1;
+    }else if(size == 2){
+        if(isNumber(input[1])){
+            if((strcmp(input[0], "-i")==0 || strcmp(input[0], "tempo-inactividade")==0) && isNumber(input[1])){
+                sprintf(message, "%s %d", "i", atoi(input[1]));
+            }else if((strcmp(input[0], "-m")==0 || strcmp(input[0], "tempo-execucao")==0) && isNumber(input[1])){
+                sprintf(message, "%s %d", "m", atoi(input[1]));
+            }else if((strcmp(input[0], "-t")==0 || strcmp(input[0], "terminar")==0) && isNumber(input[1])){
+                sprintf(message, "%s %d", "t", atoi(input[1]));
+            }else if((strcmp(input[0], "-o")==0 || strcmp(input[0], "output")==0) && isNumber(input[1])){
+                sprintf(message, "%s %d", "o", atoi(input[1]));
+            }
+        }else if(strcmp(input[0], "-e")==0 || strcmp(input[0], "executar")==0){
+            sprintf(message, "%s %s", "e", input[1]); // passed from argv
+        }else return -1;
+    }else if(strcmp(input[0], "-e")==0 || strcmp(input[0], "executar")){
+		printf("something wrong\n");
+	}else return -1;
+
+    sendMessage(message, strlen(message));
+
     return 0;
 }
 
+int initCommunication(){
+    strcpy(serverPath, FIFOS);
 
-/* prepare client to comunicate with server */
-// 0--> sucess 
-// -1--> error
-int initCommunication(void){
-	int fdel;
-	/* Prepare signals */
-	signal(SIGALRM, ctrl_alarm_handler);
-	signal(SIGINT, ctrl_c_handler);
-	//signal(SIGUSR1, sigusr1_handler);
-
-	//getServerPath(serverPath, serverPid);
-
-	char* path = malloc(sizeof(char) * 64);
+    path = malloc(sizeof(char) * PATH_SIZE);
 	memset(path, '\0', 64);
-	pid = getpid();
-	snprintf(path, 64, "/tmp/fifo%ld", (long) pid);
-	if((fdel = open(ERRORS, O_WRONLY)) == -1){
-		write(2, "Rip error logging.\n", 19);
-		return NULL;
-	} else {
-		dup2(fdel, 2);
-		close(fdel);
-	}
-	if (mkfifo(path, 0777) == -1){
-		write(2, "client fifo\n", 12);
-		return NULL;
-	}
-	alarm(3);
-	if((fifo = open(serverPath, O_WRONLY)) == -1){
-		write(2, "server fifo\n", 13);
-		return NULL;
-	}
-	alarm(0);
+	snprintf(path, 64, "%s%ld", FIFOS, (long) getpid());
 
-	strcpy(keepPath, path);
+    if(mkfifo(path, 0666) == -1) {
+        perror("client fifo");
+        return -1;
+    }
 
-	return path;
+    if((fifo = open(serverPath, O_WRONLY)) == -1){
+        perror("open");
+        return -1;
+    }
+
+    /* sending my fifo's path to server */
+    write(fifo, path, strlen(path));
+
+    return 0;
 }
-int main(void){
-	int n, bufferSize = 1024, offset = 0;
-	char *path, *buffer = malloc(sizeof(char) * bufferSize);
 
-	if((path = initCommunication()) == -1) return -1;
+int main(int argc, char* argv[]){
+    int bytes_read;
+    char buf[SIZE];
+    int res = 0;;
 
-	/* Read cicle */
-	while((n = readln(0, buffer + offset, bufferSize - offset)) > 0){
-		offset += n;
-		if ((offset && buffer[offset-1] == '\n') || buffer[n-1] == '\n') {
-			buffer[offset-1] = '\0';
-			if (buffer[0] == '\0' || parser(buffer, path)) break;
-			offset = 0;
-			memset(buffer, '\0', bufferSize);
-		} else {
-			buffer = realloc(buffer, bufferSize * 2);
-            bufferSize *= 2;
-		}
+    if(initCommunication() == -1) perror("Communication");
+
+	if(argc > 1){
+		parser(argv+1, argc-1);
 	}
 
-	closeCommunication(path);
+    if(fork() == 0){
+        /* writes to server fifo */ 
+        while(1){
+            if((fifo = open(serverPath, O_WRONLY)) == -1) perror("open");
 
-	free(path);
-	free(buffer);
+        
+            while((bytes_read = readln(0, buf, SIZE)) > 0){
+                /*parse input*/
+                buf[bytes_read-1] = '\0';
+                int size;
+                char** wrds = words(buf, &size);
+                if(parser(wrds, size) == -1) write(1, "Input Inválido!\n", 17);
+			
+    			for(int i = 0; wrds[i]; i++) free(wrds[i]);
+				free(wrds);
+			}
+            close(fifo);
+        }
+    }
 
-	return 0;
+    if(fork() == 0){
+        /* reads from myfifo */
+        while(1){
+            if((clififo = open(path, O_RDONLY)) == -1) perror("open clififo");
+
+            while((res = read(clififo, buf, SIZE)) > 0){
+                write(1, buf, res);
+				PUT_LINE;
+            }
+
+            close(clififo);
+        }
+    }
+
+    for(int i=0; i<2; i++) wait(NULL);
+
+    close(clififo);
+    unlink(path);
+    close(fifo);
+    
+    return 0;
 }

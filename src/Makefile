@@ -1,15 +1,15 @@
 CC = gcc
 CFLAGS = -Wall -g
 
-all : fifos servidor cliente
+all : fifos server client
 
-servidor: servidor.o utilities.o
+server: server.o utilities.o
 
-servidor.o: servidor.c
+server.o: server.c
 
-cliente: cliente.o utilities.o
+client: client.o utilities.o
 
-cliente.o: cliente.c
+client.o: client.c
 
 utilities.o: utilities.c
 
@@ -18,7 +18,9 @@ fifos:
 	mkdir -p files
 
 clean: 
-	rm -f *.o servidor cliente tmp/* 
+	rm -f *.o server client tmp/* 
+
+
 
 
 
