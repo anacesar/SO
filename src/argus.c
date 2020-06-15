@@ -1,4 +1,4 @@
-#include "utilities.h"
+#include "argus.h"
 
 int fifo, clififo;
 char* path;
@@ -18,13 +18,6 @@ void help(){
     write(1, "terminar tarefa\n", 16);
     write(1, "historico\n", 10);
     write(1, "output tarefa\n", 14);
-}
-
-int isNumber(const char *number) {
-    for (int i=0;i<strlen (number); i++)
-        if (!isdigit(number[i]))
-            return 0;
-    return 1;
 }
 
 int parser(char** input, int size){
@@ -49,17 +42,21 @@ int parser(char** input, int size){
                 sprintf(message, "%s %d", "t", atoi(input[1]));
             }else if((strcmp(input[0], "-o")==0 || strcmp(input[0], "output")==0) && isNumber(input[1])){
                 sprintf(message, "%s %d", "o", atoi(input[1]));
-            }
+            }else return -1;
         }else if(strcmp(input[0], "-e")==0 || strcmp(input[0], "executar")==0){
-            sprintf(message, "%s %s", "e", input[1]); // passed from argv
+            sprintf(message, "%s %s", "e", input[1]); 
         }else return -1;
-    }else if(strcmp(input[0], "-e")==0 || strcmp(input[0], "executar")){
-		printf("something wrong\n");
-	}else return -1;
+    }else return -1;
 
     sendMessage(message, strlen(message));
 
     return 0;
+}
+
+void closeClient(){
+    close(clififo);
+    close(fifo);
+    unlink(path);
 }
 
 int initCommunication(){
@@ -81,19 +78,24 @@ int initCommunication(){
 
     /* sending my fifo's path to server */
     write(fifo, path, strlen(path));
-
     return 0;
 }
 
 int main(int argc, char* argv[]){
     int bytes_read;
-    char buf[SIZE];
+    char buf[MAX_READER];
     int res = 0;;
 
     if(initCommunication() == -1) perror("Communication");
 
 	if(argc > 1){
 		parser(argv+1, argc-1);
+        if((clififo = open(path, O_RDONLY)) == -1) perror("open clififo");
+        while((res = read(clififo, buf, MAX_READER))<=0);
+        write(1, buf, res);
+        PUT_LINE;
+        closeClient();
+        return 0;
 	}
 
     if(fork() == 0){
@@ -101,8 +103,7 @@ int main(int argc, char* argv[]){
         while(1){
             if((fifo = open(serverPath, O_WRONLY)) == -1) perror("open");
 
-        
-            while((bytes_read = readln(0, buf, SIZE)) > 0){
+            while((bytes_read = readln(0, buf, MAX_READER)) > 0){
                 /*parse input*/
                 buf[bytes_read-1] = '\0';
                 int size;
@@ -112,6 +113,7 @@ int main(int argc, char* argv[]){
     			for(int i = 0; wrds[i]; i++) free(wrds[i]);
 				free(wrds);
 			}
+
             close(fifo);
         }
     }
@@ -121,7 +123,7 @@ int main(int argc, char* argv[]){
         while(1){
             if((clififo = open(path, O_RDONLY)) == -1) perror("open clififo");
 
-            while((res = read(clififo, buf, SIZE)) > 0){
+            while((res = read(clififo, buf, MAX_READER)) > 0){
                 write(1, buf, res);
 				PUT_LINE;
             }
@@ -132,9 +134,7 @@ int main(int argc, char* argv[]){
 
     for(int i=0; i<2; i++) wait(NULL);
 
-    close(clififo);
-    unlink(path);
-    close(fifo);
+    closeClient();
     
     return 0;
 }

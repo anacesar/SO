@@ -1,26 +1,24 @@
 CC = gcc
 CFLAGS = -Wall -g
 
-all : fifos server client
+all : fifos argus argusd
 
-server: server.o utilities.o
+argusd: argusd.o utilities.o
 
-server.o: server.c
+argusd.o: argusd.c
 
-client: client.o utilities.o
+argus: argus.o utilities.o
 
-client.o: client.c
+argus.o: argus.c
 
 utilities.o: utilities.c
 
 fifos: 
 	mkdir -p tmp
 	mkdir -p files
+	touch files/log
+	touch files/log.idx
 
 clean: 
-	rm -f *.o server client tmp/* 
-
-
-
-
-
+	rm -f *.o argus argusd tmp/* files/*
+	rm -d tmp files

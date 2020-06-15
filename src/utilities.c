@@ -1,4 +1,4 @@
-#include "utilities.h"
+#include "argus.h"
 
 /* returns how many bytes until a newline */
 ssize_t readln(int fd, char *line, size_t size){
@@ -10,7 +10,6 @@ ssize_t readln(int fd, char *line, size_t size){
     //to get '\n'
     i++; 
     }
-
     return i;
 }
 
@@ -42,7 +41,7 @@ pid_t getPidFromPath(char* path){
 char** words(const char* line, int *size){
     char* input = strdup(line);
 
-    /* to remove quotes from command: ’cut -f7 -d: /etc/passwd | uniq | wc -l’ -. cut -f7 -d: /etc/passwd | uniq | wc -l */
+    /* to remove quotes from command: 'cut -f7 -d: /etc/passwd | uniq | wc -l' -. cut -f7 -d: /etc/passwd | uniq | wc -l */
     if(*line == 'e' || line[1] == 'e'){
         char** words = malloc(3 * sizeof(char*));
         words[0] = strdup(strtok(input, " "));
@@ -81,9 +80,6 @@ char* outputFile(int pid){
     char* path = malloc(sizeof(char) * PATH_SIZE);
 	memset(path, '\0', 64);
 	snprintf(path, 64, "%s%d", TMP, pid);
-
-    printf("%s\n", path);
-
     return path;
 }
 
@@ -102,29 +98,6 @@ int countTaks(int* currentpos){
 	return res;
 }
 
-CircularArray* initCA(int sizee){
-    CircularArray* ca = (CircularArray*) malloc(sizeof(struct circularArray));
-    ca->currentPos = 0;
-    ca->size = sizee;
-    ca->tasks = (Task**) malloc(ca -> size * sizeof(Task *));
-    for(int i = 0; i < ca->size; i++) {
-        ca->tasks[i] = NULL;
-    }
-    return ca;
-}
-
-Task* insertCA(CircularArray* c, int id, char* command){
-    if(c->currentPos == c->size) c->currentPos = 0;
-    c->tasks[c->currentPos] = malloc(sizeof(struct task));
-    c->tasks[c->currentPos]->id = id;
-    c->tasks[c->currentPos]->beginning = 0;
-    c->tasks[c->currentPos]->size = id;
-    c->tasks[c->currentPos]->state = 1;
-    strcpy(c->tasks[c->currentPos]->command, command);
-    return c->tasks[c->currentPos++];
-}
-
-
 int finishTask(Task* task, int status, int init, int size){
     int fd = open(strdup(LOGIDX), O_WRONLY | O_CREAT, 0666);
     if(fd == -1) return -1;
@@ -137,38 +110,49 @@ int finishTask(Task* task, int status, int init, int size){
     if(write(fd, task, sizeof(struct task))== -1) perror("finishTask");
 
     close(fd);
-
     return 0;
 }
 
-int terminateTask(int id){
-    return 0;
-}
-
-
-/* Control options:
-0 . Binary mode
-1 . Readable mode */
-/*
-void flushCircularArray(CircularArray *c, int control){
-    char out[256];
-    for(int i = 0; i < c.size ; i++){
-        if(control){
-            sprintf(out, "Code: %d\nQuantity: %d\nTotal: %f\n", c.entries[i].artCode, c.entries[i].quantity, c.entries[i].total);
-            write(1, out, strlen(out));
-            memset(out, '\0', 256);
-        } else {
-            struct venda v;
-            v.code = c.entries[i].artCode;
-            v.quantity = c.entries[i].quantity;
-            v.total = c.entries[i].total;
-            write(1, &v, sizeof(struct venda));
-        }
+Task* findTask(CircularArray* ca, int pid){
+    int i=0;
+    while(ca->tasks[i]!=NULL && i<ca->size){
+        if(ca->tasks[i]->pid == pid) return ca->tasks[i];
+        i++;
     }
+    return NULL;
 }
-*/
 
+Task* findTaskID(CircularArray* ca, int task_id){
+    int i=0;
+    while(ca->tasks[i]!=NULL && i<ca->size){
+        if(ca->tasks[i]->id == task_id) return ca->tasks[i];
+        i++;
+    }
+    return NULL;
+}
 
+CircularArray* initCA(int sizee){
+    CircularArray* ca = (CircularArray*) malloc(sizeof(struct circularArray));
+    ca->currentPos = 0;
+    ca->size = sizee;
+    ca->tasks = (Task**) malloc(ca -> size * sizeof(Task *));
+    for(int i = 0; i < ca->size; i++) {
+        ca->tasks[i] = NULL;
+    }
+    return ca;
+}
+
+Task* insertCA(CircularArray* c, int id, char* command, int execpid){
+    if(c->currentPos == c->size) c->currentPos = 0;
+    c->tasks[c->currentPos] = malloc(sizeof(struct task));
+    c->tasks[c->currentPos]->id = id;
+    c->tasks[c->currentPos]->beginning = 0;
+    c->tasks[c->currentPos]->size = id;
+    c->tasks[c->currentPos]->state = 1;
+    c->tasks[c->currentPos]->pid = execpid;
+    strcpy(c->tasks[c->currentPos]->command, command);
+    return c->tasks[c->currentPos++];
+}
 
 /* executes a certain command */
 int exec_command(char* command){
@@ -179,13 +163,12 @@ int exec_command(char* command){
 
     token = strtok(command, " ");
     
-    for(; token!=NULL ; token = strtok(NULL, " "), i++) {exec_args[i] = token; printf("%d %s", i, exec_args[i]);}
+    for(; token!=NULL ; token = strtok(NULL, " "), i++) exec_args[i] = token;
 
     exec_args[i] = NULL;
 
     exec_ret = execvp(exec_args[0], exec_args);
     return exec_ret;
-
 }
 
 /* gets all commands from a pipeline */
@@ -199,7 +182,13 @@ int getcommands(char* line, char** commands){
     for(; (token = strtok(NULL, "|")) != NULL && i<MAXCOMMANDS ; i++) commands[i] = strdup(token);
 
     commands[i] = "\0";
-
     return i;
 }
 
+
+int isNumber(const char *number) {
+    for (int i=0;i<strlen (number); i++)
+        if (!isdigit(number[i]))
+            return 0;
+    return 1;
+}

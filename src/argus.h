@@ -1,5 +1,5 @@
-#ifndef __UTILITIES__
-#define __UTILITIES__
+#ifndef __ARGUS__
+#define __ARGUS__
 
 #include <unistd.h> /* chamadas ao sistema: defs e decls essenciais */
 #include <fcntl.h> /* O_RDONLY, O_WRONLY, O_CREAT, O_* */
@@ -11,12 +11,9 @@
 #include <sys/stat.h>
 #include <signal.h>
 #include <ctype.h>
-#include <limits.h>
-#include <errno.h>
-#include <time.h>
 
 
-#define SIZE 1024
+#define MAX_READER 1024
 #define PATH_SIZE 64
 #define OUT 256
 #define CACHE 4096
@@ -32,10 +29,11 @@
 
 typedef struct task {
 	int id;
-    int state; //0->finished, 1->executing, 2->user interrupcion, 3->max inactivity, 4->max execution, 5->error executing 
+    int state; //0->finished, 1->executing, 2->user interrupcion, 3->max inactivity, 4->max executing
 	int beginning; //where output beggins in log file
 	int size; //size of output 
-	char command[SIZE];
+	int pid; 
+	char command[MAX_READER];
 }Task; 
 
 typedef struct circularArray{
@@ -59,12 +57,18 @@ int countTaks(int* currentpos);
 
 int finishTask(Task* task, int status, int init, int size);
 
+Task* findTask(CircularArray* ca, int pid);
+
+Task* findTaskID(CircularArray* ca, int task_id);
+
 CircularArray* initCA(int size);
 
-Task* insertCA(CircularArray* c, int id, char* command);
+Task* insertCA(CircularArray* c, int id, char* command, int execpid);
 
 int exec_command(char* command);
 
 int getcommands(char* line, char** commands);
+
+int isNumber(const char *number);
 
 #endif
